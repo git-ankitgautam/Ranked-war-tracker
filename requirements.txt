@@ -1,2 +1,5 @@
 requests
 streamlit
+python-dotenv
+numpy
+pandas

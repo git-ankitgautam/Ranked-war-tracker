@@ -6,6 +6,9 @@ import pandas as pd  # Using pandas to create a table
 import requests
 from config import API_KEY
 
+def make_clickable(name, link):
+    return f'<a href="{link}" target="_blank">{name}</a>'
+
 enemyFactionId = 39580
 
 api_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
@@ -21,7 +24,8 @@ member_data = [
         api_response["members"][key]["name"],
         api_response["members"][key]["level"],
         api_response["members"][key]["status"]["state"],
-        int(api_response["members"][key]["status"]["until"])
+        int(api_response["members"][key]["status"]["until"]),
+        f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
     ]
     for key in api_response["members"]
 ]
@@ -43,7 +47,20 @@ df = pd.DataFrame(table_rows, columns=["Name","lvl","Status","Time Remaining"])
 
 # add a serial number column in the table
 df.index = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
-df.index.name = 'Sr. No.'
+
+css = """
+<style>
+table {
+    width: 100%;
+    table-layout: auto;
+}
+th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+</style>
+"""
 
 # Continuously update the countdown timers
 def update_countdown_table():
@@ -54,7 +71,7 @@ def update_countdown_table():
         # Iterate over the timestamps and calculate the remaining time
         table_rows = [
             [
-                member_data[j][0],
+                make_clickable(member_data[j][0],member_data[j][4]),
                 member_data[j][1],
                 member_data[j][2],
                 format_remaining_time(
@@ -62,13 +79,15 @@ def update_countdown_table():
                 ) if member_data[j][3] != 0 else " "
             ] for j in range(len(member_data))
         ]
-        table_rows.sort(key=lambda x: (x[3] == " ", x[3]))
+        table_rows.sort(key=lambda x: (x[3] == " ", x[1]))
         
         # Update the dataframe
         df.loc[:, :] = table_rows
 
         # Display the table
-        table_placeholder.table(df)
+        #table_placeholder.table(df)
+        st.markdown(css, unsafe_allow_html=True)
+        table_placeholder.write(df.to_html(escape=False, index=True), unsafe_allow_html=True)
 
         # Sleep for 1 second before updating the timers
         time.sleep(1)

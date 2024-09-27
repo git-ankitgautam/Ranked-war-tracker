@@ -25,7 +25,7 @@ member_data = [
         api_response["members"][key]["level"],
         api_response["members"][key]["status"]["state"],
         int(api_response["members"][key]["status"]["until"]),
-        f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
+        f"https://www.torn.com/profiles.php?XID={key}"
     ]
     for key in api_response["members"]
 ]

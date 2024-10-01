@@ -6,7 +6,7 @@ import pandas as pd  # Using pandas to create a table
 import requests
 from config import API_KEY
 
-def make_clickable(name, link):
+def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
 
 enemyFactionId = 39960
@@ -16,7 +16,7 @@ api_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId
 
 faction_name = api_response["name"]
 st.set_page_config(page_title=faction_name)
-st.title(f"Ranked War Tracker: {faction_name}")
+st.markdown(f"<h1>Faction snapshot: <a href='https://www.torn.com/factions.php?step=profile&ID={enemyFactionId}' target='_blank' style='color: #fefe00; text-decoration: none;'>{faction_name}</a></h1>", unsafe_allow_html=True)
 
 # compile all the relevant data into an array
 member_data = [
@@ -25,7 +25,7 @@ member_data = [
         api_response["members"][key]["level"],
         api_response["members"][key]["status"]["state"],
         int(api_response["members"][key]["status"]["until"]),
-        f"https://www.torn.com/profiles.php?XID={key}"
+        f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
     ]
     for key in api_response["members"]
 ]
@@ -71,7 +71,7 @@ def update_countdown_table():
         # Iterate over the timestamps and calculate the remaining time
         table_rows = [
             [
-                make_clickable(member_data[j][0],member_data[j][4]),
+                make_clickable(member_data[j][4],member_data[j][0]),
                 member_data[j][1],
                 member_data[j][2],
                 format_remaining_time(

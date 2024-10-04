@@ -1,10 +1,15 @@
 import streamlit as st
 import time
-from datetime import datetime, timedelta
-import random
+from datetime import datetime
 import pandas as pd  # Using pandas to create a table
 import requests
 from config import API_KEY
+
+def extended_status(key):
+    if "hospital" not in api_response["members"][key]["status"]["description"]: 
+        return api_response["members"][key]["status"]["description"] 
+    else:
+        return api_response["members"][key]["status"]["state"]
 
 def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
@@ -23,7 +28,7 @@ member_data = [
     [
         api_response["members"][key]["name"],
         api_response["members"][key]["level"],
-        api_response["members"][key]["status"]["state"],
+        extended_status(key),
         int(api_response["members"][key]["status"]["until"]),
         f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
     ]

@@ -9,7 +9,7 @@ from config import API_KEY
 def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
 
-enemyFactionId = 39580
+enemyFactionId = 20659
 
 api_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
 # Title of the tab and inapp title
@@ -79,7 +79,8 @@ def update_countdown_table():
                 ) if member_data[j][3] != 0 else " "
             ] for j in range(len(member_data))
         ]
-        table_rows.sort(key=lambda x: (x[3] == " ", x[1]))
+        table_rows.sort(key=lambda x: -x[1])
+        table_rows.sort(key=lambda x: (x[3] == " ", x[3]))
         
         # Update the dataframe
         df.loc[:, :] = table_rows

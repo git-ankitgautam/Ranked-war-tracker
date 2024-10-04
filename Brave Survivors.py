@@ -9,14 +9,14 @@ from config import API_KEY
 def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
 
-enemyFactionId = 39960
+factionId = 33960
 
-api_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
+api_response = requests.get("https://api.torn.com/faction/" + str(factionId)+ "?selections=&key=" + API_KEY).json()
 # Title of the tab and inapp title
 
 faction_name = api_response["name"]
 st.set_page_config(page_title=faction_name)
-st.markdown(f"<h1>Faction snapshot: <a href='https://www.torn.com/factions.php?step=profile&ID={enemyFactionId}' target='_blank' style='color: #fefe00; text-decoration: none;'>{faction_name}</a></h1>", unsafe_allow_html=True)
+st.markdown(f"<h1>Faction snapshot: <a href='https://www.torn.com/factions.php?step=profile&ID={factionId}' target='_blank' style='color: #fefe00; text-decoration: none;'>{faction_name}</a></h1>", unsafe_allow_html=True)
 
 # compile all the relevant data into an array
 member_data = [
@@ -79,7 +79,9 @@ def update_countdown_table():
                 ) if member_data[j][3] != 0 else " "
             ] for j in range(len(member_data))
         ]
-        table_rows.sort(key=lambda x: (x[3] == " ", x[1]))
+        table_rows.sort(key=lambda x: -x[1])
+        table_rows.sort(key=lambda x: (x[3] == " ", x[3]))
+
         
         # Update the dataframe
         df.loc[:, :] = table_rows

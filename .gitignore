@@ -6,3 +6,4 @@ scripts
 __pycache__
 .env
 pyvenv.cfg
+test*.py

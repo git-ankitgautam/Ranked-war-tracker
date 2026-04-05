@@ -11,6 +11,17 @@ def extended_status(key):
     else:
         return api_response["members"][key]["status"]["state"]
 
+# Function to format the remaining time
+def format_remaining_time(total_seconds):
+    total_seconds = int(total_seconds)
+    if total_seconds > 0:
+        return "{:02d}:{:02d}:{:02d}".format(
+            total_seconds // 3600,
+            (total_seconds // 60) % 60,
+            total_seconds % 60,
+        )
+    return " "
+
 def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
 
@@ -35,23 +46,10 @@ member_data = [
     for key in api_response["members"]
 ]
 
-# Create a placeholder to hold the countdown table
+# Create a placeholder to hold the data table
 table_placeholder = st.empty()
 
-# Function to format the remaining time
-def format_remaining_time(remaining_time):
-    return "{:02d}:{:02d}:{:02d}".format(
-        remaining_time.seconds // 3600,
-        (remaining_time.seconds // 60) % 60,
-        remaining_time.seconds % 60,
-    ) if remaining_time.total_seconds() > 0 else " "
-
-# intialize the dataframe and an array of shape(number of members, 4)
-table_rows = [[0 for _ in range(4)] for _ in range(len(member_data))]
-df = pd.DataFrame(table_rows, columns=["Name","lvl","Status","Time Remaining"])
-
-# add a serial number column in the table
-df.index = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
+# dataframe will be initialized in the update loop
 
 css = """
 <style>
@@ -69,9 +67,32 @@ th, td {
 
 # Continuously update the countdown timers
 def update_countdown_table():
+    global api_response, member_data
+    last_api_fetch = time.time()
+    
     while True:
-        current_time = datetime.now()
+        current_time = time.time()
         
+        # Fetch fresh data from API every 5 seconds to stay updated
+        if current_time - last_api_fetch > 5:
+            try:
+                new_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
+                if "error" not in new_response:
+                    api_response = new_response
+                    member_data = [
+                        [
+                            api_response["members"][key]["name"],
+                            api_response["members"][key]["level"],
+                            extended_status(key),
+                            int(api_response["members"][key]["status"]["until"]),
+                            f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
+                        ]
+                        for key in api_response["members"]
+                    ]
+                last_api_fetch = current_time
+            except Exception:
+                pass # Fallback to existing data if the request fails
+                
         # Create a list to store the rows of the table,
         # Iterate over the timestamps and calculate the remaining time
         table_rows = [
@@ -79,19 +100,16 @@ def update_countdown_table():
                 make_clickable(member_data[j][4],member_data[j][0]),
                 member_data[j][1],
                 member_data[j][2],
-                format_remaining_time(
-                    datetime.fromtimestamp(member_data[j][3]) - current_time
-                ) if member_data[j][3] != 0 else " "
+                format_remaining_time(member_data[j][3] - current_time) if member_data[j][3] != 0 else " "
             ] for j in range(len(member_data))
         ]
-        table_rows.sort(key=lambda x: -x[1])
-        table_rows.sort(key=lambda x: (x[3] == " ", x[3]))
+        table_rows.sort(key=lambda x: ((x[2] == "Okay", x[2]), (x[3] == " ", x[3]), -x[1]))
         
         # Update the dataframe
-        df.loc[:, :] = table_rows
+        df = pd.DataFrame(table_rows, columns=["Name", "lvl", "Status", "Time Remaining"])
+        df.index = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
 
         # Display the table
-        #table_placeholder.table(df)
         st.markdown(css, unsafe_allow_html=True)
         table_placeholder.write(df.to_html(escape=False, index=True), unsafe_allow_html=True)
 

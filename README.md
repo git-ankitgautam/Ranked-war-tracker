@@ -6,7 +6,7 @@ It provides an auto-updating dashboard showing member levels, current statuses (
 
 ## Features
 
-- **Real-Time Polling:** Automatically fetches fresh data from the Torn API every 5 seconds to ensure you always have the latest statuses during fast-paced wars.
+- **Real-Time Polling:** Automatically fetches fresh data from the Torn API every 3 seconds to ensure you always have the latest statuses during fast-paced wars.
 - **Dynamic Countdown Timers:** Calculates and displays precise countdowns (HH:MM:SS) for members in the Hospital, traveling, or in Federal Jail, updating locally every second.
 - **Secure Setup:** Enter your Torn API key and target Faction ID directly through the UI. The API key is masked and stored securely in your local session state, eliminating the need to hardcode sensitive information.
 - **Quick Attack Links:** Player names are rendered as clickable links that instantly open the Torn "Attack" page for that specific user, allowing for rapid deployment.
@@ -48,4 +48,4 @@ You will also need a valid **Torn API Key** with public access permissions to re
 
 ## Disclaimer
 
-This is a third-party application developed for the Torn community. It is not affiliated with, endorsed, or sponsored by Torn Ltd. Please ensure you comply with Torn's API usage rules and rate limits (the app naturally respects the 100 requests/minute limit by polling every 5 seconds).
+This is a third-party application developed for the Torn community. It is not affiliated with, endorsed, or sponsored by Torn Ltd. Please ensure you comply with Torn's API usage rules and rate limits (the app naturally respects the 100 requests/minute limit by polling every 3 seconds).

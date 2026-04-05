@@ -8,9 +8,21 @@ st.set_page_config(page_title="Ranked War Tracker")
 
 def extended_status(key, api_response):
     if "hospital" not in api_response["members"][key]["status"]["description"]: 
-        return api_response["members"][key]["status"]["description"] 
+        s = api_response["members"][key]["status"]["description"] 
     else:
-        return api_response["members"][key]["status"]["state"]
+        s = api_response["members"][key]["status"]["state"]
+        
+    # Prepend invisible zero-width characters to force Streamlit frontend sorting
+    # \u200b (Okay) -> \u200c (Travel) -> \u200d (Hospital) -> \u200e (Other)
+    s_lower = s.lower()
+    if s == "Okay":
+        return "\u200b" + s
+    elif "travel" in s_lower or "return" in s_lower or s_lower.startswith("in "):
+        return "\u200c" + s
+    elif s == "Hospital":
+        return "\u200d" + s
+    else:
+        return "\u200e" + s
 
 def format_remaining_time(total_seconds):
     total_seconds = int(total_seconds)
@@ -23,21 +35,8 @@ def format_remaining_time(total_seconds):
     return " "
 
 def make_clickable(link, name):
-    return f'<a href="{link}" target="_blank">{name}</a>'
-
-css = """
-<style>
-table {
-    width: 100%;
-    table-layout: auto;
-}
-th, td {
-    padding: 10px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-}
-</style>
-"""
+    # We append the name as a URL fragment so Streamlit's LinkColumn can extract it
+    return f"{link}#name={name}"
 
 def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
     table_placeholder = st.empty()
@@ -53,7 +52,7 @@ def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
             api_response["members"][key]["level"],
             extended_status(key, api_response),
             int(api_response["members"][key]["status"]["until"]),
-            f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
+                            f"https://www.torn.com/loader2.php?name={api_response['members'][key]['name']}&sid=getInAttack&user2ID={key}"
         ]
         for key in api_response["members"]
     ]
@@ -63,8 +62,8 @@ def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
     while True:
         current_time = time.time()
         
-        # Fetch fresh data from API every 5 seconds to stay updated
-        if current_time - last_api_fetch > 5:
+        # Fetch fresh data from API every 3 seconds to stay updated
+        if current_time - last_api_fetch > 3:
             try:
                 new_response = requests.get("https://api.torn.com/faction/" + str(enemy_faction_id)+ "?selections=&key=" + api_key).json()
                 if "error" not in new_response and "members" in new_response:
@@ -75,7 +74,7 @@ def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
                             api_response["members"][key]["level"],
                             extended_status(key, api_response),
                             int(api_response["members"][key]["status"]["until"]),
-                            f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
+                            f"https://www.torn.com/loader2.php?name={api_response['members'][key]['name']}&sid=getInAttack&user2ID={key}"
                         ]
                         for key in api_response["members"]
                     ]
@@ -92,15 +91,23 @@ def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
                 format_remaining_time(member_data[j][3] - current_time) if member_data[j][3] != 0 else " "
             ] for j in range(len(member_data))
         ]
-        table_rows.sort(key=lambda x: ((x[2] == "Okay", x[2]), (x[3] == " ", x[3]), -x[1]))
+        table_rows.sort(key=lambda x: (x[2], (x[3] == " ", x[3]), -x[1]))
         
         # Update the dataframe
         df = pd.DataFrame(table_rows, columns=["Name", "lvl", "Status", "Time Remaining"])
         df.index = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
 
-        # Display the table
-        st.markdown(css, unsafe_allow_html=True)
-        table_placeholder.write(df.to_html(escape=False, index=True), unsafe_allow_html=True)
+        # Display the table natively to allow column sorting
+        table_placeholder.dataframe(
+            df,
+            use_container_width=True,
+            column_config={
+                "Name": st.column_config.LinkColumn(
+                    "Name",
+                    display_text=r"#name=(.*)$"
+                )
+            }
+        )
 
         # Sleep for 1 second before updating the timers
         time.sleep(1)

@@ -1,17 +1,17 @@
 import streamlit as st
 import time
 from datetime import datetime
-import pandas as pd  # Using pandas to create a table
+import pandas as pd
 import requests
-from config import API_KEY
 
-def extended_status(key):
+st.set_page_config(page_title="Ranked War Tracker")
+
+def extended_status(key, api_response):
     if "hospital" not in api_response["members"][key]["status"]["description"]: 
         return api_response["members"][key]["status"]["description"] 
     else:
         return api_response["members"][key]["status"]["state"]
 
-# Function to format the remaining time
 def format_remaining_time(total_seconds):
     total_seconds = int(total_seconds)
     if total_seconds > 0:
@@ -24,32 +24,6 @@ def format_remaining_time(total_seconds):
 
 def make_clickable(link, name):
     return f'<a href="{link}" target="_blank">{name}</a>'
-
-enemyFactionId = 20659
-
-api_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
-# Title of the tab and inapp title
-
-faction_name = api_response["name"]
-st.set_page_config(page_title=faction_name)
-st.markdown(f"<h1>Faction snapshot: <a href='https://www.torn.com/factions.php?step=profile&ID={enemyFactionId}' target='_blank' style='color: red; text-decoration: none;'>{faction_name}</a></h1>", unsafe_allow_html=True)
-
-# compile all the relevant data into an array
-member_data = [
-    [
-        api_response["members"][key]["name"],
-        api_response["members"][key]["level"],
-        extended_status(key),
-        int(api_response["members"][key]["status"]["until"]),
-        f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
-    ]
-    for key in api_response["members"]
-]
-
-# Create a placeholder to hold the data table
-table_placeholder = st.empty()
-
-# dataframe will be initialized in the update loop
 
 css = """
 <style>
@@ -65,9 +39,25 @@ th, td {
 </style>
 """
 
-# Continuously update the countdown timers
-def update_countdown_table():
-    global api_response, member_data
+def update_countdown_table(enemy_faction_id, api_key, initial_api_response):
+    table_placeholder = st.empty()
+    api_response = initial_api_response
+    
+    if "members" not in api_response:
+        st.error("No members found or invalid response.")
+        return
+
+    member_data = [
+        [
+            api_response["members"][key]["name"],
+            api_response["members"][key]["level"],
+            extended_status(key, api_response),
+            int(api_response["members"][key]["status"]["until"]),
+            f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
+        ]
+        for key in api_response["members"]
+    ]
+    
     last_api_fetch = time.time()
     
     while True:
@@ -76,14 +66,14 @@ def update_countdown_table():
         # Fetch fresh data from API every 5 seconds to stay updated
         if current_time - last_api_fetch > 5:
             try:
-                new_response = requests.get("https://api.torn.com/faction/" + str(enemyFactionId)+ "?selections=&key=" + API_KEY).json()
-                if "error" not in new_response:
+                new_response = requests.get("https://api.torn.com/faction/" + str(enemy_faction_id)+ "?selections=&key=" + api_key).json()
+                if "error" not in new_response and "members" in new_response:
                     api_response = new_response
                     member_data = [
                         [
                             api_response["members"][key]["name"],
                             api_response["members"][key]["level"],
-                            extended_status(key),
+                            extended_status(key, api_response),
                             int(api_response["members"][key]["status"]["until"]),
                             f"https://www.torn.com/loader2.php?sid=getInAttack&user2ID={key}"
                         ]
@@ -93,8 +83,7 @@ def update_countdown_table():
             except Exception:
                 pass # Fallback to existing data if the request fails
                 
-        # Create a list to store the rows of the table,
-        # Iterate over the timestamps and calculate the remaining time
+        # Create a list to store the rows of the table
         table_rows = [
             [
                 make_clickable(member_data[j][4],member_data[j][0]),
@@ -116,4 +105,48 @@ def update_countdown_table():
         # Sleep for 1 second before updating the timers
         time.sleep(1)
 
-update_countdown_table()
+# Main app flow
+if 'api_key' not in st.session_state or 'faction_id' not in st.session_state:
+    st.title("Ranked War Tracker Setup")
+    with st.form("setup_form"):
+        api_key_input = st.text_input("Enter your Torn API Key:", type="password")
+        faction_id_input = st.text_input("Enter Target Faction ID:")
+        submitted = st.form_submit_button("Start Tracking")
+        
+        if submitted:
+            if api_key_input and faction_id_input:
+                st.session_state['api_key'] = api_key_input
+                st.session_state['faction_id'] = faction_id_input
+                if hasattr(st, 'rerun'):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
+            else:
+                st.error("Please provide both API Key and Faction ID.")
+else:
+    api_key = st.session_state['api_key']
+    faction_id = st.session_state['faction_id']
+    
+    col1, col2 = st.columns([0.8, 0.2])
+    with col2:
+        if st.button("Change Settings", use_container_width=True):
+            del st.session_state['api_key']
+            del st.session_state['faction_id']
+            if hasattr(st, 'rerun'):
+                st.rerun()
+            else:
+                st.experimental_rerun()
+        
+    try:
+        response = requests.get("https://api.torn.com/faction/" + str(faction_id)+ "?selections=&key=" + api_key).json()
+        if "error" in response:
+            st.error(f"Error from API: {response['error'].get('error', 'Invalid API Key or Faction ID')}")
+        else:
+            faction_name = response.get("name", "Unknown Faction")
+            with col1:
+                st.markdown(f"<h1>Faction snapshot: <a href='https://www.torn.com/factions.php?step=profile&ID={faction_id}' target='_blank' style='color: red; text-decoration: none;'>{faction_name}</a></h1>", unsafe_allow_html=True)
+            
+            # Start loop
+            update_countdown_table(faction_id, api_key, response)
+    except Exception as e:
+        st.error(f"Failed to fetch data: {e}")
